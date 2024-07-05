@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: url('https://images.unsplash.com/photo-1524055988636-436cfa46e59e?q=80&w=2535&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') no-repeat center center fixed;
+            background-size: cover;
+            color: white;
+            margin: 0;
+        }
+
+        h1 {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        form {
+            background-color: rgba(0, 0, 0, 0.511);
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .drop-zone {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .drop-zone.hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        #response {
+            margin-top: 20px;
+            background-color: rgba(0, 0, 0, 0.511);
+            padding: 20px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 600px;
+            word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+        }
+
+        #response p {
+            margin: 5px 0;
+            font-size: 18px;
+        }
+
+        #response .confidence {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload Image</h1>
+    <form id="uploadForm">
+        <label for="imageInput" class="drop-zone" id="dropZone">
+            <input type="file" id="imageInput" accept="image/*">
+            <span>Drag & Drop or Click to Upload</span>
+        </label>
+        <button type="submit">Upload</button>
+    </form>
+    <div id="response"></div>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const dropZone = document.getElementById('dropZone');
+        const imageInput = document.getElementById('imageInput');
+        const responseDiv = document.getElementById('response');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function preventDefaults(event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        function highlight() {
+            dropZone.classList.add('hover');
+        }
+
+        function unhighlight() {
+            dropZone.classList.remove('hover');
+        }
+
+        function handleDrop(event) {
+            const dt = event.dataTransfer;
+            const files = dt.files;
+
+            if (files.length > 0) {
+                imageInput.files = files;
+                displayImage(files[0]);
+            }
+        }
+
+        function displayImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                dropZone.style.backgroundImage = `url(${event.target.result})`;
+                dropZone.innerHTML = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        uploadForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const file = imageInput.files[0];
+
+            if (!file) {
+                alert("Please select an image file.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://localhost:8000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+
+                const result = await response.json();
+                responseDiv.innerHTML = `
+                    <p>Class: <strong>${result.class}</strong></p>
+                    <p>Confidence: <strong class="confidence">${(result.confidence * 100).toFixed(2)}%</strong></p>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                responseDiv.innerText = 'Error: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>
